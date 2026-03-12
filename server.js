@@ -64,6 +64,36 @@ app.post('/api/deals', async (req, res) => {
   }
 });
 
+// Zoho CRM 汎用モジュール送信
+app.post('/api/custom', async (req, res) => {
+  try {
+    const { module, payload } = req.body;
+    if (!module || !payload) {
+      return res.status(400).json({ error: 'module and payload are required' });
+    }
+    let token = await getZohoToken();
+    const url = `https://www.zohoapis.jp/crm/v2/${module}`;
+    let response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Authorization': `Zoho-oauthtoken ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data: [payload] }),
+    });
+    if (response.status === 401) {
+      cachedToken = null;
+      token = await getZohoToken();
+      response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Authorization': `Zoho-oauthtoken ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: [payload] }),
+      });
+    }
+    const result = await response.json();
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Whisper 文字起こし
 app.post('/api/whisper', upload.single('file'), async (req, res) => {
   try {
