@@ -31,6 +31,10 @@ async function getZohoToken() {
   return cachedToken;
 }
 
+app.get('/', (req, res) => {
+  res.sendFile(__dirname + '/index.html');
+});
+
 // ヘルスチェック
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
