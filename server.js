@@ -43,7 +43,7 @@ app.post('/api/deals', async (req, res) => {
   try {
     const { payload } = req.body;
     let token = await getZohoToken();
-    let response = await fetch('https://www.zohoapis.jp/crm/v2/Deals', {
+    let response = await fetch('https://www.zohoapis.jp/crm/v7/Deals', {
       method: 'POST',
       headers: { 'Authorization': `Zoho-oauthtoken ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ data: [payload] }),
@@ -51,7 +51,7 @@ app.post('/api/deals', async (req, res) => {
     if (response.status === 401) {
       cachedToken = null;
       token = await getZohoToken();
-      response = await fetch('https://www.zohoapis.jp/crm/v2/Deals', {
+      response = await fetch('https://www.zohoapis.jp/crm/v7/Deals', {
         method: 'POST',
         headers: { 'Authorization': `Zoho-oauthtoken ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ data: [payload] }),
@@ -72,7 +72,7 @@ app.post('/api/custom', async (req, res) => {
       return res.status(400).json({ error: 'module and payload are required' });
     }
     let token = await getZohoToken();
-    const url = `https://www.zohoapis.jp/crm/v2/${module}`;
+    const url = `https://www.zohoapis.jp/crm/v7/${module}`;
     let response = await fetch(url, {
       method: 'POST',
       headers: { 'Authorization': `Zoho-oauthtoken ${token}`, 'Content-Type': 'application/json' },
