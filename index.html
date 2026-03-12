@@ -2081,31 +2081,49 @@ function copyFullTranscript() {
 // ============================================================
 // Zoho CRM 送信処理
 // ============================================================
+
 async function sendToZoho() {
   updateCalc();
-  const payload = buildZohoApiPayload();
 
-  // 送信中UI
   const btn = document.getElementById('btnZohoSend');
   if (btn) { btn.textContent = '送信中...'; btn.disabled = true; }
 
   try {
+    // ① 商談レコード作成
+    const dealPayload = buildDealPayload();
     const res = await fetch(`${PROXY_BASE}/api/deals`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ payload }),
+      body: JSON.stringify({ payload: dealPayload }),
     });
-
     const result = await res.json();
     const record = result?.data?.[0];
-
-    if (record?.code === 'SUCCESS') {
-      const dealId = record?.details?.id;
-      showZohoSuccessModal(dealId);
-    } else {
-      const msg = record?.message || record?.code || JSON.stringify(result);
-      throw new Error(msg);
+    if (record?.code !== 'SUCCESS') {
+      throw new Error(record?.message || record?.code || JSON.stringify(result));
     }
+    const dealId = record.details.id;
+
+    // ② 相続人レコード作成（複数）
+    for (const h of data.heirs) {
+      if (!h.Heir_Name) continue;
+      await fetch(`${PROXY_BASE}/api/custom`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          module: 'CustomModule1',
+          payload: {
+            Name:     h.Heir_Name,
+            field3:   h.Heir_Kana     || null,  // ふりがな
+            field4:   h.Heir_Birthday || null,  // 生年月日
+            field7:   h.Relationship  || null,  // 続柄
+            field9:   h.Legal_Heir    || false, // 法定相続人フラグ
+            field8:   { id: dealId },           // 案件（ルックアップ）
+          }
+        }),
+      });
+    }
+
+    showZohoSuccessModal(dealId);
 
   } catch(err) {
     if (btn) { btn.textContent = '🔗 Zoho CRMに送信'; btn.disabled = false; }
@@ -2113,13 +2131,10 @@ async function sendToZoho() {
   }
 }
 
-function buildZohoApiPayload() {
+function buildDealPayload() {
   const legalHeirCount = data.heirs.filter(h => h.Legal_Heir).length;
   const basicDeduction = 3000 + 600 * legalHeirCount;
   const assetMan = parseFloat(String(data.Total_Asset_Estimate).replace(/[,万円]/g,'')) || 0;
-
-  // 相続人氏名を結合してfield24に入れる
-  const heirNames = data.heirs.map(h => `${h.Heir_Name}（${h.Relationship}）`).join('、');
 
   return {
     // 基本
@@ -2137,7 +2152,7 @@ function buildZohoApiPayload() {
     field8:      data.Client_Phone          || null,  // 依頼者電話番号
     field7:      data.Client_Mobile         || null,  // 依頼者携帯
     field9:      data.Client_Email          || null,  // 依頼者メール
-    field20:     data.Contact_Preference?.length ? data.Contact_Preference : null, // 希望連絡先
+    field20:     data.Contact_Preference?.join(';') || null, // 希望連絡先
     field63:     data.Mailing_Destination   || null,  // 郵送先
     field62:     data.Alt_Mailing_Address   || null,  // 郵送先（その他）
 
@@ -2147,12 +2162,9 @@ function buildZohoApiPayload() {
     field28:     data.Deceased_Address      || null,  // 被相続人住所
     field29:     data.Deceased_Domicile     || null,  // 被相続人本籍
 
-    // 相続人
-    field24:     heirNames                  || null,  // 相続人氏名（結合）
-
     // 受注内容
-    field35:     data.Procedure_Type?.length ? data.Procedure_Type : null, // 受注区分
-    field42:     data.Additional_Services?.length ? data.Additional_Services : null, // 付帯サービス
+    field35:     data.Procedure_Type?.length ? data.Procedure_Type : null, // 受注区分（マルチセレクト）
+    field42:     data.Additional_Services?.join(';') || null, // 付帯サービス
     field61:     data.Important_Notes       || null,  // 重要事項
     field88:     data.Survey_Document       || null,  // 財産調査使用書類
 
@@ -2164,17 +2176,17 @@ function buildZohoApiPayload() {
     field71:     data.Building_Age          || null,  // 築年数
     field79:     data.Area_Rating           || null,  // エリア評価
     field78:     calcPropertyRank()         || null,  // 不動産評価ランク
-    field75:     data.Title_Deed ? '有' : '無',       // 権利書有無
-    field74:     data.Tax_Notice ? '有' : '無',       // 納税通知書有無
+    field75:     data.Title_Deed ? '有' : null,       // 権利書有無
+    field74:     data.Tax_Notice ? '有' : null,       // 納税通知書有無
     field64:     data.RE_Agent              || null,  // 不動産業者名
     field68:     data.Property_General_Notes|| null,  // 不動産備考
+    field84:     data.Valuation_Method      || null,  // 不動産評価方法
+    field80:     data.Nayose_Request_Pattern|| null,  // 名寄帳請求書パターン
 
     // 金融・相続税
     field85:     data.Passbook_Status       || null,  // 通帳状況
     field86:     data.Cancellation_Support  || null,  // 解約サポート
     field93:     assetMan                   || null,  // 資産合計額
-    field94:     basicDeduction             || null,  // 基礎控除額
-    field95:     assetMan ? assetMan - basicDeduction : null, // 課税見込額
     field96:     data.Tax_Filing_Required   || null,  // 相続税申告要否
     field21:     data.Tax_Filing_Deadline   || null,  // 申告期限
     field115:    data.Tax_Advisor_Referral  || null,  // 税理士紹介有無
@@ -2185,12 +2197,20 @@ function buildZohoApiPayload() {
     field92:     data.Distribution_Policy   || null,  // 分配方針
     field91:     data.Distribution_Proposal || null,  // 分配方針提案有無
     field97:     data.Agreement_Signing     || null,  // 協議書調印方法
+    field87:     data.Inventory_Items?.join(';') || null, // 財産目録記載要否
 
-    // 遺言・生命保険
+    // 遺言
     field116:    data.Will_Type             || null,  // 遺言種別
     field110:    data.Will_Storage          || null,  // 遺言保管
     field111:    data.Will_Execution        || null,  // 遺言執行
-    field105:    data.Insurance_Proposal ? true : false, // 生命保険提案有無
+    field113:    data.Creation_Location     || null,  // 作成場所
+    field104:    data.Notary_Office         || null,  // 公証役場名
+
+    // 信託
+    field114:    data.Trust_Type            || null,  // 信託契約書種別
+
+    // 生命保険
+    field105:    data.Insurance_Proposal === '有' ? true : false, // 生命保険提案有無
     field107:    data.Insurance_Company     || null,  // 保険会社名
     field108:    data.Insurance_Detail      || null,  // 保険種類・金額
   };
