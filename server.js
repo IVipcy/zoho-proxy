@@ -23,7 +23,7 @@ app.post("/api/deals", async (req, res) => {
         Authorization: `Zoho-oauthtoken ${access_token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ data: [payload] }),
     });
 
     const data = await response.json();
