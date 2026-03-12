@@ -2137,7 +2137,7 @@ function buildZohoApiPayload() {
     field8:      data.Client_Phone          || null,  // 依頼者電話番号
     field7:      data.Client_Mobile         || null,  // 依頼者携帯
     field9:      data.Client_Email          || null,  // 依頼者メール
-    field20:     data.Contact_Preference?.join(';') || null, // 希望連絡先
+    field20:     data.Contact_Preference?.length ? data.Contact_Preference : null, // 希望連絡先
     field63:     data.Mailing_Destination   || null,  // 郵送先
     field62:     data.Alt_Mailing_Address   || null,  // 郵送先（その他）
 
@@ -2151,8 +2151,8 @@ function buildZohoApiPayload() {
     field24:     heirNames                  || null,  // 相続人氏名（結合）
 
     // 受注内容
-    field35:     data.Procedure_Type?.join(';')       || null, // 受注区分
-    field42:     data.Additional_Services?.join(';')  || null, // 付帯サービス
+    field35:     data.Procedure_Type?.length ? data.Procedure_Type : null, // 受注区分
+    field42:     data.Additional_Services?.length ? data.Additional_Services : null, // 付帯サービス
     field61:     data.Important_Notes       || null,  // 重要事項
     field88:     data.Survey_Document       || null,  // 財産調査使用書類
 
