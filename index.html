@@ -1358,8 +1358,8 @@ function renderProperty() {
   const rank = calcPropertyRank();
   const rankDescs = {S:'最優先で査定・売却推進',A:'早めの査定推進',B:'通常対応',C:'慎重に判断',D:'売却困難・要注意','確認中':'エリア・築年数を確認してください'};
   m.innerHTML = sectionHeader('🏠', '不動産', '不動産評価ランクが売却スピードに影響します') +
-    card('物件種別', pills('Property_Type', ['戸建','/マンション','/土地','/収益物件','/その他'])) +
-    card('住人有無', pills('Resident_Status', ['空き家','居住中（相続人）','居住中（第三者）/賃貸中'])) +
+    card('物件種別', pills('Property_Type', ['戸建','マンション','土地','収益物件','その他'])) +
+    card('住人有無', pills('Resident_Status', ['空き家','居住中（相続人）','居住中（第三者）','賃貸中'])) +
     (data.Resident_Status && data.Resident_Status.includes('居住中') ?
       card('住人名', textInput('Resident_Name','住人の氏名')) : '') +
     card('エリア評価', pills('Area_Rating', ['人気エリア','標準','不人気エリア'])) +
@@ -1645,8 +1645,8 @@ function renderFinance() {
   const m = document.getElementById('mainContent');
   m.innerHTML = sectionHeader('💴', '金融資産・相続税', '資産合計から相続税申告の要否を自動判定') +
     card('金融機関（判明分）', textareaInput('Bank_Names','例：きらぼし銀行、三菱UFJ銀行、野村証券')) +
-    card('通帳の状況', pills('Passbook_Status', ['即日預かり','/送ってもらう','/紛失'])) +
-    card('解約サポート', pills('Cancellation_Support', ['受注','/受注していない','/検討中','/未提案'])) +
+    card('通帳の状況', pills('Passbook_Status', ['即日預かり','送ってもらう','紛失'])) +
+    card('解約サポート', pills('Cancellation_Support', ['受注','受注していない','検討中','未提案'])) +
     `<div class="card">
       <div class="card-label">資産合計概算（万円）</div>
       <input class="input-field" type="number" value="${data.Total_Asset_Estimate||''}"
@@ -1679,7 +1679,7 @@ function renderFinance() {
       </div>
     </div>` +
     '<div class="spacer"></div>' +
-    card('税理士紹介', pills('Tax_Advisor_Referral', ['有','/無/','検討中'])) +
+    card('税理士紹介', pills('Tax_Advisor_Referral', ['有','無','検討中'])) +
     (data.Tax_Advisor_Referral === '有' ? card('税理士名・事務所', textInput('Tax_Advisor_Name','税理士名・事務所名')) : '') +
     '<div class="spacer"></div>';
 }
@@ -1719,20 +1719,20 @@ function renderDivision() {
 
   m.innerHTML = sectionHeader('⚖️', '遺産分割・遺言', '分割方針と遺言の有無を確認') +
     card('依頼者の意向', textareaInput('Client_Intention','例：長男が不動産を取得し、残りを3人で均等に分けたい')) +
-    card('分配方針', pills('Distribution_Policy', ['法定相続/','2次相続を踏まえて/','その他'])) +
+    card('分配方針', pills('Distribution_Policy', ['法定相続','2次相続を踏まえて','その他'])) +
     card('分配方針の提案', pills('Distribution_Proposal', ['あり','なし'])) +
     card('協議書の調印方法', pills('Agreement_Signing',
-      ['依頼者から各相続人へ','/OCから各相続人へ','/オーシャンで調印','/その他'])) +
+      ['依頼者から各相続人へ','OCから各相続人へ','オーシャンで調印','その他'])) +
     card('財産目録の記載区分', pills('Inventory_Items',
-      ['不動産/','金融資産','/債務・負債/','諸費用・経費','/生命保険/','その他'], true)) +
+      ['不動産','金融資産','債務・負債','諸費用・経費','生命保険','その他'], true)) +
     `<div style="font-size:14px;font-weight:700;color:var(--navy);margin:16px 0 12px;">📋 分割内容明細</div>` +
     divHTML +
     `<button class="btn-add" onclick="addDiv()" style="margin-bottom:20px">＋ 分割内容を追加</button>` +
     `<div class="divider"></div>` +
     sectionHeader('📜', '遺言', '遺言がある場合・遺言作成業務がある場合') +
-    card('遺言種別', pills('Will_Type', ['自筆','/公正証書/','その他'])) +
-    card('遺言保管', pills('Will_Storage', ['お客様保管','/ご案内していない','/ご案内済(検討中)/','ご依頼'])) +
-    card('遺言執行', pills('Will_Execution', ['執行不要','/ご案内していない','/ご案内済(検討中)','ご依頼'])) +
+    card('遺言種別', pills('Will_Type', ['自筆','公正証書','その他'])) +
+    card('遺言保管', pills('Will_Storage', ['お客様保管','ご案内していない','ご案内済(検討中)','ご依頼'])) +
+    card('遺言執行', pills('Will_Execution', ['執行不要','ご案内していない','ご案内済(検討中)','ご依頼'])) +
     card('遺留分リスク / 遺贈', `<div class="pill-group">
       <div class="pill ${data.Iryubun_Risk==='有'?'selected':''}" onclick="togglePill('Iryubun_Risk','有',false)">遺留分リスク：有</div>
       <div class="pill ${data.Iryubun_Risk==='無'?'selected':''}" onclick="togglePill('Iryubun_Risk','無',false)">遺留分リスク：無</div>
@@ -1876,7 +1876,7 @@ function updateCalc() {
   const basicDeduction = 3000 + 600 * legalHeirCount;
   const assetMan = parseFloat(String(data.Total_Asset_Estimate).replace(/[,万円]/g,''))||0;
   if (data.Total_Asset_Estimate) {
-    data.Tax_Filing_Required = assetMan > basicDeduction ? '要' : '/不要';
+    data.Tax_Filing_Required = assetMan > basicDeduction ? '要' : '不要';
   }
   if (data.Date_of_Death) {
     const d = new Date(data.Date_of_Death);
@@ -1893,7 +1893,7 @@ function showSuccess() {
   document.getElementById('bottomBar').style.display = 'none';
   document.getElementById('stepNav').parentElement.style.display = 'none';
 
-  const json = buildZohoPayload();
+  const json = buildDealPayload();
   const m = document.getElementById('mainContent');
   m.innerHTML = `<div class="success-view">
     <div class="success-icon">✓</div>
@@ -1922,73 +1922,7 @@ function showSuccess() {
   </div>`;
 }
 
-function buildZohoPayload() {
-  updateCalc();
-  const legalHeirCount = data.heirs.filter(h=>h.Legal_Heir).length;
-  const basicDeduction = 3000 + 600 * legalHeirCount;
-  const assetMan = parseFloat(String(data.Total_Asset_Estimate).replace(/[,万円]/g,''))||0;
-  return {
-    Deal_Name: `${data.Deceased_Name} 相続案件`,
-    Stage: '面談設定済',
-    Order_Date: data.Order_Date,
-    Sales_Owner: data.Sales_Owner,
-    Difficulty: data.Difficulty,
-    Lead_Source: data.Lead_Source,
-    LP_Partner_Name: data.LP_Partner_Name,
-    Client_Name: data.Client_Name,
-    Client_Kana: data.Client_Kana,
-    Client_Phone: data.Client_Phone,
-    Client_Mobile: data.Client_Mobile,
-    Client_Email: data.Client_Email,
-    Contact_Preference: data.Contact_Preference.join(';'),
-    Deceased_Name: data.Deceased_Name,
-    Deceased_Kana: data.Deceased_Kana,
-    Deceased_Birthday: data.Deceased_Birthday,
-    Date_of_Death: data.Date_of_Death,
-    Deceased_Address: data.Deceased_Address,
-    Procedure_Type: data.Procedure_Type.join(';'),
-    Additional_Services: data.Additional_Services.join(';'),
-    Task_Koseki: data.Task_Koseki,
-    Task_Chart: data.Task_Chart,
-    Task_RealEstate: data.Task_RealEstate,
-    Task_Finance: data.Task_Finance,
-    Task_Inventory: data.Task_Inventory,
-    Task_Agreement: data.Task_Agreement,
-    Task_Registration: data.Task_Registration,
-    Task_Cancel: data.Task_Cancel,
-    Task_Appraisal: data.Task_Appraisal,
-    Property_Sale: data.Property_Sale,
-    Resident_Status: data.Resident_Status,
-    Title_Deed: data.Title_Deed,
-    Property_Type: data.Property_Type,
-    Building_Age: data.Building_Age,
-    Area_Rating: data.Area_Rating,
-    Property_Rank: calcPropertyRank(),
-    Sale_Urgency: data.Sale_Urgency,
-    Passbook_Status: data.Passbook_Status,
-    Cancellation_Support: data.Cancellation_Support,
-    Total_Asset_Estimate: assetMan || null,
-    Basic_Deduction: basicDeduction,
-    Taxable_Estimate: assetMan ? assetMan - basicDeduction : null,
-    Tax_Filing_Required: data.Tax_Filing_Required,
-    Tax_Filing_Deadline: data.Tax_Filing_Deadline,
-    Tax_Advisor_Referral: data.Tax_Advisor_Referral,
-    Client_Intention: data.Client_Intention,
-    Distribution_Policy: data.Distribution_Policy,
-    Will_Type: data.Will_Type,
-    Insurance_Proposal: data.Insurance_Proposal,
-    Important_Notes: data.Important_Notes,
-    heirs: data.heirs.map(h => ({
-      Heir_Name: h.Heir_Name,
-      Heir_Kana: h.Heir_Kana,
-      Relationship: h.Relationship,
-      Legal_Heir: h.Legal_Heir,
-    })),
-    _legal_heir_count: legalHeirCount,
-    Meeting_Transcript: data.Meeting_Transcript || '',
-    AI_Summary: data.AI_Summary || '',
-  };
-}
+// ※旧版buildZohoPayload削除済み（buildDealPayloadに統一）
 
 function copyJson() {
   const text = document.getElementById('jsonOutput').textContent;
@@ -2675,7 +2609,7 @@ function showZohoSuccessModal(dealId) {
       <div style="font-size:13px;color:var(--muted);margin-bottom:6px;">${data.Deceased_Name || ''} 様の相続案件</div>
       ${dealId ? `<div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--border);margin-bottom:24px;">Deal ID: ${dealId}</div>` : ''}
       <div style="display:grid;gap:8px;">
-        ${dealId ? `<a href="https://crm.zoho.jp/crm/org/tab/Potentials/${dealId}" target="_blank"
+        ${dealId ? `<a href="https://crm.zoho.jp/crm/org842574741/tab/Potentials/${dealId}" target="_blank"
           style="display:block;padding:13px;border-radius:12px;border:none;background:var(--navy);color:#fff;font-size:14px;font-weight:700;text-decoration:none;">
           Zoho CRM で確認する →
         </a>` : ''}
