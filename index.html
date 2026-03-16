@@ -1222,12 +1222,6 @@ function renderBasic() {
     card('面談日', dateInput('Order_Date'), true) +
     card('受注担当', textInput('Sales_Owner','担当者名を入力'), true) +
     card('難易度', pills('Difficulty', ['高','中','低'])) +
-    card('受注ルート', pills('Lead_Source', ['LP','公益社','はせがわ','その他'])) +
-    (data.Lead_Source === 'LP' ? card('LP名・担当者',
-      `<div style="display:grid;gap:10px">
-        ${textInput('LP_Partner_Name','LP会社名')}
-        ${textInput('Partner_Rep','担当者名')}
-      </div>`) : '') +
     '<div class="spacer"></div>';
 }
 
@@ -1321,13 +1315,13 @@ function removeHeir(i) {
 function renderOrder() {
   const m = document.getElementById('mainContent');
   m.innerHTML = sectionHeader('📝', '受注内容', '受任する業務の範囲を確認') +
-    card('手続区分', pills('Procedure_Type',
-      ['手続一式','登記','遺言','放棄'], true), true) +
+    card('受注区分', pills('Procedure_Type',
+      ['手続一式','登記','遺言','放棄','調停','検認','後見','手紙','契約書','執行'], true), true) +
     card('付帯サービス', pills('Additional_Services', ['相続税申告','不動産売却','生命保険'], true)) +
-    card('受任業務チェック', toggleCards([
+    card('受任項目', toggleCards([
       ['Task_Koseki','📜','戸籍'],
       ['Task_Chart','🗂️','相関図'],
-      ['Task_Legal_Info','⚖️','法定相続情報'],
+      ['Task_Legal_Info','⚖️','法定相続情報取得'],
       ['Task_RealEstate','🏠','不動産'],
       ['Task_Finance','💴','金融資産'],
       ['Task_Inventory','📋','目録'],
@@ -1336,7 +1330,7 @@ function renderOrder() {
       ['Task_Cancel','🔒','解約'],
       ['Task_Letter','✉️','手紙'],
       ['Task_Will','📜','遺言起案'],
-      ['Task_Petition','🏛️','申立書'],
+      ['Task_Petition','🏛️','申立書起案'],
       ['Task_Contract','📝','契約書起案'],
       ['Task_Appraisal','🏡','不動産査定'],
     ])) +
@@ -1649,12 +1643,12 @@ function renderFinance() {
     card('解約サポート', pills('Cancellation_Support', ['受注','受注していない','検討中','未提案'])) +
     `<div class="card">
       <div class="card-label">資産合計概算（万円）</div>
-      <input class="input-field" type="number" value="${data.Total_Asset_Estimate||''}"
+      <input class="input-field" id="assetInput" type="number" value="${data.Total_Asset_Estimate||''}"
         placeholder="例：3500"
-        oninput="data.Total_Asset_Estimate=this.value;renderStep(currentStep)"
+        oninput="data.Total_Asset_Estimate=this.value;updateCalc();document.getElementById('calcBox')&&renderCalcBox()"
         style="font-size:22px;font-weight:700;font-family:'DM Mono',monospace;">
     </div>` +
-    `<div class="calc-box">
+    `<div class="calc-box" id="calcBox">
       <div class="calc-row">
         <span class="calc-row-label">法定相続人数</span>
         <span class="calc-row-val">${legalHeirCount} 名</span>
@@ -1924,6 +1918,49 @@ function showSuccess() {
 
 // ※旧版buildZohoPayload削除済み（buildDealPayloadに統一）
 
+
+// 資産合計入力時にcalcBoxだけ更新（全再描画なし）
+function renderCalcBox() {
+  const box = document.getElementById('calcBox');
+  if (!box) return;
+  const legalHeirCount = data.heirs.filter(h => h.Legal_Heir).length;
+  const basicDeduction = 3000 + 600 * legalHeirCount;
+  const assetMan = parseFloat(String(data.Total_Asset_Estimate).replace(/[,万円]/g,'')) || 0;
+  const taxable = assetMan - basicDeduction;
+  const taxStatus = data.Total_Asset_Estimate
+    ? (taxable > 0 ? 'required' : 'not-required')
+    : 'unknown';
+  const taxLabel = { required:'申告　要', 'not-required':'申告　不要', unknown:'確認中' };
+  let deadline = '';
+  if (data.Date_of_Death) {
+    const d = new Date(data.Date_of_Death);
+    d.setMonth(d.getMonth() + 10);
+    deadline = d.toLocaleDateString('ja-JP', {year:'numeric',month:'2-digit',day:'2-digit'});
+  }
+  box.innerHTML = `
+    <div class="calc-row">
+      <span class="calc-row-label">法定相続人数</span>
+      <span class="calc-row-val">${legalHeirCount} 名</span>
+    </div>
+    <div class="calc-row">
+      <span class="calc-row-label">基礎控除額</span>
+      <span class="calc-row-val">${basicDeduction.toLocaleString()} 万円</span>
+    </div>
+    <div class="calc-row">
+      <span class="calc-row-label">資産合計（概算）</span>
+      <span class="calc-row-val">${assetMan ? assetMan.toLocaleString()+' 万円' : '未入力'}</span>
+    </div>
+    <div class="calc-row">
+      <span class="calc-row-label">課税見込額</span>
+      <span class="calc-row-val ${taxable>0?'danger':''}">
+        ${assetMan ? (taxable>0?'+':'')+taxable.toLocaleString()+' 万円' : '—'}
+      </span>
+    </div>
+    <div style="margin-top:12px">
+      <span class="tax-badge ${taxStatus}">${taxLabel[taxStatus]}</span>
+      ${deadline ? `<span style="font-size:12px;color:rgba(255,255,255,0.5);margin-left:12px">申告期限：${deadline}</span>` : ''}
+    </div>`;
+}
 function copyJson() {
   const text = document.getElementById('jsonOutput').textContent;
   navigator.clipboard.writeText(text).then(() => {
