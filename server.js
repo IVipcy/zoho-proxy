@@ -133,5 +133,56 @@ app.post('/api/claude', async (req, res) => {
   }
 });
 
+
+// 面談設定済 案件一覧取得
+app.get('/api/deals/pending', async (req, res) => {
+  try {
+    let token = await getZohoToken();
+    const url = 'https://www.zohoapis.jp/crm/v7/Deals/search?criteria=(Stage:equals:面談設定済)&fields=id,Deal_Name,field24,field22,field12,Sales_Owner&per_page=50';
+    let response = await fetch(url, {
+      headers: { 'Authorization': `Zoho-oauthtoken ${token}` },
+    });
+    if (response.status === 401) {
+      cachedToken = null;
+      token = await getZohoToken();
+      response = await fetch(url, {
+        headers: { 'Authorization': `Zoho-oauthtoken ${token}` },
+      });
+    }
+    const result = await response.json();
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 既存案件 上書き更新
+app.put('/api/deals/:dealId', async (req, res) => {
+  try {
+    const { dealId } = req.params;
+    const { payload } = req.body;
+    let token = await getZohoToken();
+    const url = `https://www.zohoapis.jp/crm/v7/Deals/${dealId}`;
+    let response = await fetch(url, {
+      method: 'PUT',
+      headers: { 'Authorization': `Zoho-oauthtoken ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data: [payload] }),
+    });
+    if (response.status === 401) {
+      cachedToken = null;
+      token = await getZohoToken();
+      response = await fetch(url, {
+        method: 'PUT',
+        headers: { 'Authorization': `Zoho-oauthtoken ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: [payload] }),
+      });
+    }
+    const result = await response.json();
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

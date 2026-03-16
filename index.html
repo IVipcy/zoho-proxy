@@ -1031,6 +1031,7 @@ const data = {
 // STEPS CONFIG
 // ============================================================
 const STEPS = [
+  { id: 'select',     label: '案件選択',   icon: '🔍' },
   { id: 'basic',      label: '基本情報',   icon: '📋' },
   { id: 'client',     label: '依頼者',     icon: '👤' },
   { id: 'deceased',   label: '被相続人',   icon: '📁' },
@@ -1046,6 +1047,10 @@ const STEPS = [
 
 let currentStep = 0;
 const completedSteps = new Set();
+
+// 案件選択モード管理
+let selectedDealId = null;   // 選択した既存案件ID（nullなら新規作成）
+let pendingDeals = [];        // 面談設定済案件リスト
 
 // ============================================================
 // INIT
@@ -1114,6 +1119,7 @@ function renderStep(i) {
   btnNext.className = 'btn-next' + (isLast ? ' btn-submit' : '');
 
   const renders = {
+    select:     renderSelect,
     basic:      renderBasic,
     client:     renderClient,
     deceased:   renderDeceased,
@@ -1199,13 +1205,16 @@ function togglePill(key, val, multi) {
 }
 
 function toggleCards(tasks) {
-  return `<div class="toggle-grid">${tasks.map(([key, icon, label]) => {
+  let html = '<div class="toggle-grid">';
+  for (const [key, icon, label] of tasks) {
     const on = data[key];
-    return `<div class="toggle-card ${on?'on':''}" onclick="data['${key}']=!data['${key}'];renderStep(currentStep)">
-      <div class="tc-icon">${icon}</div>
-      <div class="tc-label">${label}</div>
-    </div>`;
-  }).join('')}</div>`;
+    html += '<div class="toggle-card ' + (on ? 'on' : '') + '" onclick="data[\"' + key + '\"]=!data[\"' + key + '\"];renderStep(currentStep)">'
+      + '<div class="tc-icon">' + icon + '</div>'
+      + '<div class="tc-label">' + label + '</div>'
+      + '</div>';
+  }
+  html += '</div>';
+  return html;
 }
 
 function toggleCheck(key, label) {
@@ -1216,6 +1225,104 @@ function toggleCheck(key, label) {
 // ============================================================
 // STEP RENDERS
 // ============================================================
+
+// ============================================================
+// 案件選択ステップ
+// ============================================================
+async function renderSelect() {
+  const m = document.getElementById('mainContent');
+  const modeNewSelected = !selectedDealId;
+  const modeExistSelected = !!selectedDealId;
+
+  m.innerHTML = sectionHeader('🔍', '案件選択', '面談予定の案件を選択するか、新規作成してください') +
+    card('モード選択',
+      '<div class="pill-group">' +
+        '<div class="pill ' + (modeNewSelected ? 'selected' : '') + '" onclick="setMode(\'new\')">＋ 新規作成</div>' +
+        '<div class="pill ' + (modeExistSelected ? 'selected' : '') + '" onclick="setMode(\'existing\')">既存案件に上書き</div>' +
+      '</div>'
+    ) +
+    '<div id="dealSelectArea"></div>' +
+    '<div class="spacer"></div>';
+
+  if (modeExistSelected) {
+    if (pendingDeals.length > 0) {
+      renderDealList();
+    } else {
+      loadPendingDeals();
+    }
+  }
+}
+
+function setMode(mode) {
+  if (mode === 'new') {
+    selectedDealId = null;
+  } else {
+    selectedDealId = 'loading';
+  }
+  renderSelect();
+}
+
+async function loadPendingDeals() {
+  const area = document.getElementById('dealSelectArea');
+  if (area) area.innerHTML = '<div class="card" style="text-align:center;padding:32px;color:var(--muted)">読み込み中...</div>';
+  try {
+    const url = PROXY_BASE + '/api/deals/pending';
+    const res = await fetch(url);
+    const result = await res.json();
+    pendingDeals = result && result.data ? result.data : [];
+    selectedDealId = pendingDeals.length > 0 ? 'loaded' : null;
+    renderDealList();
+  } catch(e) {
+    const area2 = document.getElementById('dealSelectArea');
+    if (area2) area2.innerHTML = '<div class="card" style="text-align:center;padding:32px;color:var(--danger)">案件の取得に失敗しました。<br><small>' + e.message + '</small></div>';
+  }
+}
+
+function renderDealList() {
+  const area = document.getElementById('dealSelectArea');
+  if (!area) return;
+  if (!pendingDeals || pendingDeals.length === 0) {
+    area.innerHTML = '<div class="card" style="text-align:center;padding:32px;color:var(--muted)">面談設定済の案件が見つかりません。<br>新規作成モードをお使いください。</div>';
+    return;
+  }
+  let listHTML = '';
+  for (const d of pendingDeals) {
+    const deceasedName = (d.field24 || d.Deal_Name || '-').replace(/'/g, '&#39;');
+    const meetingDate = d.field22 || '日付未設定';
+    const ownerObj = d.Sales_Owner;
+    const owner = ownerObj && ownerObj.name ? ownerObj.name : '-';
+    const isSelected = selectedDealId === d.id;
+    const borderColor = isSelected ? 'var(--accent)' : 'var(--border)';
+    const bgColor = isSelected ? '#E8FAF6' : 'var(--bg)';
+    const checkMark = isSelected ? 'v' : '';
+    listHTML +=
+      '<div class="heir-block" style="cursor:pointer;border-color:' + borderColor + ';background:' + bgColor + '"' +
+        ' onclick="selectDeal(\'' + d.id + '\',\'' + deceasedName + '\')">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+          '<div>' +
+            '<div style="font-size:15px;font-weight:700;color:var(--navy)">' + deceasedName + ' 相続案件</div>' +
+            '<div style="font-size:12px;color:var(--muted);margin-top:4px;">面談日: ' + meetingDate + ' 担当: ' + owner + '</div>' +
+          '</div>' +
+          '<div style="font-size:18px;">' + checkMark + '</div>' +
+        '</div>' +
+      '</div>';
+  }
+  area.innerHTML = '<div class="card"><div class="card-label">面談設定済の案件</div>' + listHTML + '</div>';
+}
+
+function selectDeal(dealId, dealName) {
+  selectedDealId = dealId;
+  const deal = pendingDeals.find(function(d) { return d.id === dealId; });
+  if (deal) {
+    data.Deceased_Name = deal.field24 || '';
+    data.Order_Date = deal.field22 || data.Order_Date;
+    const ownerObj = deal.Sales_Owner;
+    data.Sales_Owner = ownerObj && ownerObj.name ? ownerObj.name : '';
+  }
+  renderDealList();
+}
+
+
 function renderBasic() {
   const m = document.getElementById('mainContent');
   m.innerHTML = sectionHeader('📋', '基本情報', '面談開始時に確認する項目') +
@@ -2376,19 +2483,37 @@ async function sendToZoho() {
   if (btn) { btn.textContent = '送信中...'; btn.disabled = true; }
 
   try {
-    // ① 商談レコード作成
+    // ① 商談レコード 新規作成 or 既存案件 上書き更新
     const dealPayload = buildDealPayload();
-    const res = await fetch(`${PROXY_BASE}/api/deals`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ payload: dealPayload }),
-    });
-    const result = await res.json();
-    const record = result?.data?.[0];
-    if (record?.code !== 'SUCCESS') {
-      throw new Error(record?.message || record?.code || JSON.stringify(result));
+    let dealId;
+
+    if (selectedDealId && selectedDealId !== 'new') {
+      // 既存案件を上書き更新（PUT）
+      const res = await fetch(`${PROXY_BASE}/api/deals/${selectedDealId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ payload: dealPayload }),
+      });
+      const result = await res.json();
+      const record = result?.data?.[0];
+      if (record?.code !== 'SUCCESS') {
+        throw new Error(record?.message || record?.code || JSON.stringify(result));
+      }
+      dealId = selectedDealId;
+    } else {
+      // 新規作成（POST）
+      const res = await fetch(`${PROXY_BASE}/api/deals`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ payload: dealPayload }),
+      });
+      const result = await res.json();
+      const record = result?.data?.[0];
+      if (record?.code !== 'SUCCESS') {
+        throw new Error(record?.message || record?.code || JSON.stringify(result));
+      }
+      dealId = record.details.id;
     }
-    const dealId = record.details.id;
 
     // ② 相続人レコード作成（複数）CustomModule1
     for (const h of data.heirs) {
@@ -2548,7 +2673,7 @@ function buildDealPayload() {
   return {
     // 基本
     Deal_Name:   `${data.Deceased_Name || '未入力'} 相続案件`,
-    Stage:       '面談設定済',
+    Stage:       '検討中',
     field22:     data.Date_of_Death         || null,  // 相続開始日
     field40:     data.Difficulty            || null,  // 難易度
     field47:     data.Lead_Source           || null,  // 受注ルート
